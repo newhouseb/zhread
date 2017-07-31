@@ -1,0 +1,353 @@
+<html>
+<style>
+body {
+      color: black;
+}
+    .word {
+      padding: 1px;
+      cursor: default;
+      border-radius: 3px;
+      margin: 2px;
+    }
+    .selected {
+      color: red;
+    }
+
+    .definition {
+      padding: 1px;
+      cursor: default;
+      border-radius: 3px;
+      margin: 2px;
+      display: inline-block;
+      float: left;
+      clear: both;
+    }
+    .chinese {
+     font-weight: bold;
+    }
+    .pronunciation {
+     font-style: italic;
+    }
+    #wrapper {
+     position: fixed;
+     top: 0px;
+     width: 100%;
+    }
+    #wrapper > .wrapperinner {
+     text-align: center;
+    }
+</style>
+  <body>
+    <div id="wrapper">
+      <div class="wrapperinner" style="width: 840px; margin: 0 auto; position: relative;">
+        <div id="definition" style="position: absolute; left: -50px; top: 20px; width: 200px; text-align: left;">
+
+        </div>
+        <div style="position: absolute; right: -30px; top: 20px; width: 200px; text-align: left;">
+          <div>next section</div>
+          <div>previous section</div>
+        </div>
+        <div id="glossary" style="position: absolute; right: -30px; top: 70px; width: 200px;">
+
+        </div>
+      </div>
+    </div>
+    <div id="content" style="width: 500px; margin-left: auto; margin-right: auto;">
+
+    </div>
+  </body>
+  <script type="text/javascript" src="/lib/zip.js"></script>
+  <script>
+zip.workerScriptsPath = "/lib/";
+
+var parts = document.location.hash.slice(1).split('/');
+
+var file = parts[0];
+var part = parseInt(parts[1]);
+var selectedIndex = 0;
+
+function classForWord(word) {
+    var cls = "";
+    for (var i = 0; i < word.length; i++) {
+        cls += 'c' + word.charCodeAt(i); 
+    }
+    return cls;
+}
+
+function colorForWord(word) {
+    var hue = 0;
+    for (var i = 0; i < word.length; i++) {
+        hue = (hue ^ word.charCodeAt(i)) % 360; 
+    }
+    return 'hsl(' + hue + ', 100%, 87.5%)';
+}
+
+var tones = {
+  'a': [ 'ā', 'á', 'ǎ', 'à', 'a' ],
+  'e': [ 'ē', 'é', 'ě', 'è', 'e' ],
+  'i': [ 'ī', 'í', 'ǐ', 'ì', 'i' ],
+  'o': [ 'ō', 'ó', 'ǒ', 'ò', 'o' ],
+  'u': [ 'ū', 'ú', 'ǔ', 'ù', 'u' ]
+};
+
+function pinyinify(word) {
+    if (word.indexOf('e') != -1) {
+      return word.replace('e', tones['e'][parseInt(word[word.length-1]) - 1]).substring(0, word.length - 1);
+    }
+    if (word.indexOf('a') != -1) {
+      return word.replace('a', tones['a'][parseInt(word[word.length-1]) - 1]).substring(0, word.length - 1);
+    }
+    if (word.indexOf('ou') != -1) {
+      return word.replace('o', tones['o'][parseInt(word[word.length-1]) - 1]).substring(0, word.length - 1);
+    }
+    for (var i = word.length - 1; i >= 0; i--) {
+      if ("aeiou".indexOf(word[i]) != -1) {
+        var word = word.substr(0, i) + tones[word[i]][parseInt(word[word.length-1]) - 1] + word.substr(i + 1);
+        word = word.substring(0, word.length - 1);
+        return word;
+      }
+    }
+}
+
+function selectWordOnHover(event) {
+    selectedIndex = event.target.wordIndex;
+    selectWord(event.target);
+}
+
+function addClass(el, cls) {
+    el.className += " " + cls;
+}
+
+function removeClass(el, cls) {
+    el.className = el.className.split(' ').filter(function(c) { return c != cls; }).join(' ');
+}
+
+function getChinese(definition) {
+    var words = definition.split(' ');
+    if (words[0] == words[1]) return words[0];
+    return words[0] + '(' + words[1] + ')';
+}
+
+function getDefinitions(definition) {
+    var toret = definition.replace(/[a-zA-Z]+[1234]/g, pinyinify).split('/').slice(1)
+    return toret.slice(0, toret.length - 1);
+}
+
+function getPronunciation(definition) {
+    var word = definition.match(/\[([^\]]*)\]/)[1];
+    return word.split(' ').map(pinyinify).join(' ');
+}
+
+function selectWord(el) {
+    Array.prototype.map.call(document.getElementsByClassName("selected"), function(el) { removeClass(el, "selected"); });
+    addClass(el, "selected");
+    console.log(getPronunciation(window.mapping[el.innerHTML]));
+    var def = window.mapping[el.innerHTML];
+    var newdef = ('<div class="chinese">' + getChinese(def) + '</div>' + 
+                  '<div class="pronunciation">' + getPronunciation(def) + '</div>');
+    var options = getDefinitions(def);
+    for (var i = 0; i < options.length; i++) {
+        newdef += '<div class="option">' + (i + 1) + '. ' + options[i] + '</div>';
+    }
+    document.getElementById("definition").innerHTML = newdef;
+}
+
+function selectNext() {
+    selectWord(window.words[++selectedIndex]);
+}
+
+function selectPrevious() {
+    selectWord(window.words[--selectedIndex]);
+}
+
+window.addEventListener("keydown", function(e) {
+    console.log(e.keyCode);
+    if (e.keyCode == 39) {
+      selectNext();
+    } else if (e.keyCode == 37) {
+      selectPrevious();
+    } else if (e.keyCode == 13) {
+      toggleDefinition(window.words[selectedIndex].innerHTML);
+    }
+});
+
+window.glossary = [];
+window.glossarySet = {};
+
+function toggleDefinition(word, dontSave) {
+  if (window.glossarySet[word]) {
+    delete window.glossarySet[word];
+    Array.prototype.map.call(document.getElementsByClassName(classForWord(word)), function(el) {
+      el.style.backgroundColor = '';
+    });
+
+    var def = document.getElementById("glossary").getElementsByClassName(classForWord(word))[0]; 
+    def.parentNode.removeChild(def);
+    window.glossary = window.glossary.filter(function(w) { return w != word; });
+    if (!dontSave) window.localStorage.setItem("glossary", JSON.stringify(window.glossary));
+  } else {
+    window.glossarySet[word] = 1;
+    Array.prototype.map.call(document.getElementsByClassName(classForWord(word)), function(el) {
+      el.style.backgroundColor = colorForWord(word);
+    });
+
+    var def = document.createElement('div');
+    def.innerHTML = word + ' - ' + getPronunciation(window.mapping[word]);
+    def.style.backgroundColor = colorForWord(word);
+    def.className = "definition " + classForWord(word);
+    document.getElementById("glossary").insertBefore(def, document.getElementById("glossary").firstChild);
+    window.glossary.push(word);
+    if (!dontSave) window.localStorage.setItem("glossary", JSON.stringify(window.glossary));
+  }
+}
+
+function annotateElement(el) {
+  for (var i = 0; i < el.childNodes.length; i++) {
+    if (el.childNodes[i].nodeType == 3) {
+      content = el.childNodes[i].textContent;
+
+      var ptr = 0;
+      
+      var annotated = false;
+
+      var word = '';
+      var def = null;
+      var replacement = '';
+
+      while(ptr < content.length) {
+        nextLetter = content[ptr]; 
+
+        // Check to see if we've made a word
+        var maybeDef = window.mapping[word + nextLetter];
+        if (maybeDef == undefined) {
+          if (def != null) {
+            //console.log("Found definition", word, "-->", def);
+            replacement += "<span class=\"word "+ classForWord(word) + "\">" + word + "</span>";
+            annotated = true;
+          } else {
+            replacement += word;
+          }
+          def = window.mapping[nextLetter];
+          word = nextLetter;
+        } else {
+          def = maybeDef;
+          word += nextLetter;
+        }
+        ptr += 1;
+      }
+      if (def != null) {
+        //console.log("Found definition", word, "-->", def);
+        replacement += "<span class=\"word "+ classForWord(word) + "\">" + word + "</span>";
+        annotated = true;
+      } else {
+        replacement += word;
+      }
+
+      if (annotated) {
+          //console.log(replacement);
+          var replacementNode = document.createElement('span');
+          replacementNode.innerHTML = replacement;
+          var n = el.childNodes[i];
+          n.parentNode.insertBefore(replacementNode, n);
+          n.parentNode.removeChild(n);
+      }
+    } else {
+      annotateElement(el.childNodes[i]);
+    }
+  }
+}
+
+function presentItem(path) {
+  for (var i = 0; i < window.bookEntries.length; i++ ){
+    console.log(window.bookEntries[i].filename, path);
+    // We probably should read this relative path from somewhere
+    if (window.bookEntries[i].filename == 'OEBPS/' + path) {
+
+      // Read out HTML
+      window.bookEntries[i].getData(new zip.TextWriter(), function(text) {
+
+         // Stuff it in a DIV so we can iterate through things and annotate them
+         var holder = document.createElement('div');
+         holder.innerHTML = text;
+
+         annotateElement(holder);
+
+         window.words = holder.getElementsByClassName('word');
+         for (var i = 0; i < words.length; i++) {
+           window.words[i].addEventListener('mouseover', selectWordOnHover);
+           window.words[i].wordIndex = i;
+         }
+
+         document.getElementById("content").appendChild(holder);
+
+         var glossary = JSON.parse(window.localStorage.getItem("glossary"));
+         for (var i = 0; i < glossary.length; i++) {
+           toggleDefinition(glossary[i], true);  
+         }
+
+      }, function(error) {
+        console.log("Error", error); 
+      });
+    }
+  }
+}
+
+function loadBook() {
+  req2 = new XMLHttpRequest();
+  req2.addEventListener("load", function() {
+      zip.createReader(new zip.BlobReader(req2.response), function(reader) {
+        reader.getEntries(function(entries) {
+          window.bookEntries = entries;
+          for (var i = 0; i < entries.length; i++ ){
+            if (entries[i].filename == 'OEBPS/content.opf') {
+              entries[i].getData(new zip.TextWriter(), function(text) {
+                parser = new DOMParser();
+                xmlDoc = parser.parseFromString(text,"text/xml");
+                window.bookManifest = xmlDoc.getElementsByTagName('manifest')[0];
+                window.bookSpine = xmlDoc.getElementsByTagName('spine')[0];
+
+                var loadId = window.bookSpine.children[part].getAttribute('idref');
+                var itemLoc = window.bookManifest.children[loadId].getAttribute('href');
+                presentItem(itemLoc);
+
+                console.log(loadId, itemLoc);
+              }, function(current, total) {
+                // onprogress callback
+              });
+            }
+          }
+        }, function(error) {
+          console.log('hmm', error); 
+        });
+      }, function(error) {
+        // onerror callback
+        console.log('hmm', error); 
+      });
+  });
+  req2.open("GET", file);
+  req2.responseType = 'blob';
+  req2.send();
+}
+
+function loadDict() {
+  var req = new XMLHttpRequest();
+  req.addEventListener("load", function() {
+      var entries = req.responseText.split("\n");
+      window.mapping = {};
+      for (var i = 0; i < entries.length; i++) {
+         if (entries[i][0] == "#") continue;
+         var entry = entries[i].split(" ");
+         window.mapping[entry[0]] = entries[i];
+         window.mapping[entry[1]] = entries[i];
+      }
+
+      loadBook();
+  });
+  req.open("GET", "cedict_ts.u8");
+  req.send();
+}
+
+loadDict();
+
+  </script>
+</html>
