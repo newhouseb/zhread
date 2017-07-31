@@ -43,6 +43,9 @@ body {
     .nav:hover {
       text-decoration: underline;
     }
+    .bookmark:before {
+        content: '▶';
+    }
 </style>
   <body>
     <div id="wrapper">
@@ -162,13 +165,19 @@ function getPronunciation(definition) {
 function selectWord(el) {
     Array.prototype.map.call(document.getElementsByClassName("selected"), function(el) { removeClass(el, "selected"); });
     addClass(el, "selected");
-    console.log(getPronunciation(window.mapping[el.innerHTML]));
-    var def = window.mapping[el.innerHTML];
-    var newdef = ('<div class="chinese">' + getChinese(def) + '</div>' + 
-                  '<div class="pronunciation">' + getPronunciation(def) + '</div>');
-    var options = getDefinitions(def);
-    for (var i = 0; i < options.length; i++) {
-        newdef += '<div class="option">' + (i + 1) + '. ' + options[i] + '</div>';
+    console.log(getPronunciation(window.mapping[el.innerHTML][0]));
+    var defs = window.mapping[el.innerHTML];
+    var newdef = '';
+  
+    for (var j = 0; j < defs.length; j++) { 
+      var def = defs[j];
+      newdef += ('<div class="chinese">' + getChinese(def) + '</div>' + 
+                    '<div class="pronunciation">' + getPronunciation(def) + '</div>');
+      var options = getDefinitions(def);
+      for (var i = 0; i < options.length; i++) {
+          newdef += '<div class="option">' + (i + 1) + '. ' + options[i] + '</div>';
+      }
+      newdef += '<br />';
     }
     document.getElementById("definition").innerHTML = newdef;
 }
@@ -183,13 +192,18 @@ function selectPrevious() {
 
 window.addEventListener("keydown", function(e) {
     console.log(e.keyCode);
-    if (e.keyCode == 39) {
+    if (e.keyCode == 39 || e.keyCode == 74 || e.keyCode == 76) {
       selectNext();
-    } else if (e.keyCode == 37) {
+    } else if (e.keyCode == 37 || e.keyCode == 75 || e.keyCode == 72) {
       selectPrevious();
     } else if (e.keyCode == 13) {
       toggleDefinition(window.words[selectedIndex].innerHTML);
+    } else if (e.keyCode == 66) {
+      window.localStorage.setItem('bookmark_' + file + '_' + part, selectedIndex);
+      Array.prototype.map.call(document.getElementsByClassName("bookmark"), function(el) { removeClass(el, "bookmark"); });
+      addClass(window.words[selectedIndex], "bookmark");
     }
+    
 });
 
 window.glossary = [];
@@ -213,7 +227,7 @@ function toggleDefinition(word, dontSave) {
     });
 
     var def = document.createElement('div');
-    def.innerHTML = word + ' - ' + getPronunciation(window.mapping[word]);
+    def.innerHTML = word + ' - ' + getPronunciation(window.mapping[word][0]);
     def.style.backgroundColor = colorForWord(word);
     def.className = "definition " + classForWord(word);
     document.getElementById("glossary").insertBefore(def, document.getElementById("glossary").firstChild);
@@ -348,6 +362,12 @@ function presentItem(path) {
            toggleDefinition(glossary[i], true);  
          }
 
+         var bm = window.localStorage.getItem('bookmark_' + file + '_' + part);
+         if (bm) {
+           window.words[parseInt(bm)].scrollIntoView(true);
+           addClass(window.words[parseInt(bm)], 'bookmark');
+         }
+
       }, function(error) {
         console.log("Error", error); 
       });
@@ -400,8 +420,9 @@ function loadDict() {
       for (var i = 0; i < entries.length; i++) {
          if (entries[i][0] == "#") continue;
          var entry = entries[i].split(" ");
-         window.mapping[entry[0]] = entries[i];
-         window.mapping[entry[1]] = entries[i];
+         window.mapping[entry[0]] = (window.mapping[entry[0]] || []).concat(entries[i]);
+         if (entry[0] != entry[1])
+           window.mapping[entry[1]] = (window.mapping[entry[1]] || []).concat(entries[i]);
 
          if (entry[0].length > 2) {
            bigwords[entry[0].slice(0, 2)] =  (bigwords[entry[0].slice(0, 2)] || []).concat(entries[i]);
