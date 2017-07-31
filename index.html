@@ -36,6 +36,13 @@ body {
     #wrapper > .wrapperinner {
      text-align: center;
     }
+    .nav {
+      font-weight: bold;
+      cursor: pointer;
+    }
+    .nav:hover {
+      text-decoration: underline;
+    }
 </style>
   <body>
     <div id="wrapper">
@@ -44,8 +51,8 @@ body {
 
         </div>
         <div style="position: absolute; right: -30px; top: 20px; width: 200px; text-align: left;">
-          <div>next section</div>
-          <div>previous section</div>
+          <div id="nextbutton" class="nav">&raquo; next section</div>
+          <div id="prevbutton" class="nav">&laquo; previous section</div>
         </div>
         <div id="glossary" style="position: absolute; right: -30px; top: 70px; width: 200px;">
 
@@ -65,6 +72,20 @@ var parts = document.location.hash.slice(1).split('/');
 var file = parts[0];
 var part = parseInt(parts[1]);
 var selectedIndex = 0;
+
+document.getElementById("nextbutton").addEventListener("click", function() {
+  document.location.href = "/#" + file + "/" + (part + 1);
+});
+
+document.getElementById("prevbutton").addEventListener("click", function() {
+  document.location.href = "/#" + file + "/" + (part - 1);
+});
+
+
+window.onhashchange = function() {
+  window.location.reload()
+};
+
 
 function classForWord(word) {
     var cls = "";
@@ -201,6 +222,8 @@ function toggleDefinition(word, dontSave) {
   }
 }
 
+var bigwords = {};
+
 function annotateElement(el) {
   for (var i = 0; i < el.childNodes.length; i++) {
     if (el.childNodes[i].nodeType == 3) {
@@ -220,6 +243,44 @@ function annotateElement(el) {
         // Check to see if we've made a word
         var maybeDef = window.mapping[word + nextLetter];
         if (maybeDef == undefined) {
+
+        // If word + nextLetter is a >= two length word, check for any longer ones
+          if (word.length >= 1) {
+            var biggies = bigwords[(word + nextLetter).slice(0,2)];  
+            var biggest = null;
+            if (biggies) {
+              for (var j = 0; j < biggies.length; j++) {
+                var bigword = biggies[j].split(' ');
+                var simple = bigword[1];
+                var trad = bigword[0];
+                var cmp = content.slice(ptr - word.length, ptr - word.length + trad.length);
+                if (word + nextLetter == '对不') console.log(trad, simple, cmp);
+                if (cmp == simple) {
+                  if (biggest == null || (simple.length > biggest.length)) {
+                    biggest = simple;
+                  }
+                } else if (cmp == trad) {
+                  if (biggest == null || (trad.length > biggest.length)) {
+                    biggest = trad;
+                  }
+                }
+              }
+            }
+            if (biggest) {
+              var extra = biggest.length - word.length;
+              word = biggest;
+              replacement += "<span class=\"word "+ classForWord(word) + "\">" + word + "</span>";
+              annotated = true;
+              ptr += extra;
+
+              word = content[ptr];
+              ptr += 1;
+              def = window.mapping[nextLetter];
+
+              continue;
+            }
+          }
+
           if (def != null) {
             //console.log("Found definition", word, "-->", def);
             replacement += "<span class=\"word "+ classForWord(word) + "\">" + word + "</span>";
@@ -235,13 +296,15 @@ function annotateElement(el) {
         }
         ptr += 1;
       }
-      if (def != null) {
-        //console.log("Found definition", word, "-->", def);
-        replacement += "<span class=\"word "+ classForWord(word) + "\">" + word + "</span>";
-        annotated = true;
-      } else {
-        replacement += word;
-      }
+      if (word != null) {
+        if (def != null) {
+          //console.log("Found definition", word, "-->", def);
+          replacement += "<span class=\"word "+ classForWord(word) + "\">" + word + "</span>";
+          annotated = true;
+        } else {
+          replacement += word;
+        }
+      } 
 
       if (annotated) {
           //console.log(replacement);
@@ -339,6 +402,11 @@ function loadDict() {
          var entry = entries[i].split(" ");
          window.mapping[entry[0]] = entries[i];
          window.mapping[entry[1]] = entries[i];
+
+         if (entry[0].length > 2) {
+           bigwords[entry[0].slice(0, 2)] =  (bigwords[entry[0].slice(0, 2)] || []).concat(entries[i]);
+           bigwords[entry[1].slice(0, 2)] =  (bigwords[entry[0].slice(0, 2)] || []).concat(entries[i]);
+         }
       }
 
       loadBook();
