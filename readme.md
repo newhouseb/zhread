@@ -10,7 +10,7 @@
 2. acquire chinese epub books and put them in this folder
 3. run `python -c "import SimpleHTTPServer; m = SimpleHTTPServer.SimpleHTTPRequestHandler.extensions_map; m[''] = 'text/plain'; m.update(dict([(k, v + ';charset=UTF-8') for k, v in m.items()])); SimpleHTTPServer.test();"`
 4. go to `http://localhost:8000/#[epub filename renamed to ascii for best results].epub/0`
-5. read some chinese
+5. read some chinese (note, you may need to click through a few sections to get to meaningful material)
 
 ## controls
 - **mouse hover** - show definitions / select word.
@@ -24,3 +24,6 @@
 - the amazing cc-cedict (cc-cedict.org)
 - the amazing zip.js (https://gildas-lormeau.github.io/zip.js/)
  
+## gotchas
+
+- i don't load styles and/or images. haven't needed them.
