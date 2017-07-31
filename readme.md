@@ -2,6 +2,8 @@
 
 **disclaimer**: i wrote this while binge watching ozark on netflix, so it's pretty much stream of conciousness. let this be proof that sometimes decent engineers can write miserable code :).
 
+![alt text](zhread.gif "Demo")
+
 ## how to
 
 1. clone this repo
